@@ -1,1 +1,2 @@
-# DIGITAL-WALLET-SYSTEM
+# DIGITAL-WALLET-SYSTEMA Digital Wallet System is a software-based system that securely stores users' payment information and passwords for numerous payment methods and websites. It enables users to make electronic transactions quickly using smartphones or computers. Digital wallets can store credit/debit card details, bank accounts, digital currencies, and loyalty cards. They use encryption and authentication for secure access. Popular examples include Google Pay, Paytm, and Apple Pay.
+
