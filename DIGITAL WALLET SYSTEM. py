@@ -1,0 +1,371 @@
+import sqlite3
+
+import hashlib
+
+import tkinter as tk
+
+from tkinter import messagebox
+
+def create_db():
+
+ conn = sqlite3.connect('digital_wallet.db')
+
+ cursor = conn.cursor()
+
+ cursor.execute('''
+
+ CREATE TABLE IF NOT EXISTS users (
+
+ user_id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+ username TEXT NOT NULL UNIQUE,
+
+ password TEXT NOT NULL,
+
+ balance REAL DEFAULT 0
+
+ )
+
+ ''')
+
+ cursor.execute('''
+
+ CREATE TABLE IF NOT EXISTS transactions (
+
+ transaction_id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+ user_id INTEGER,
+
+ type TEXT,
+
+ amount REAL,
+
+ date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+ FOREIGN KEY(user_id) REFERENCES users(user_id)
+
+ )
+
+ ''')
+conn.commit()
+
+ conn.close()
+
+def hash_password(password):
+
+ return hashlib.sha256(password.encode()).hexdigest()
+
+def register_user(username, password):
+
+ conn = sqlite3.connect('digital_wallet.db')
+
+ cursor = conn.cursor()
+
+ hashed_password = hash_password(password)
+
+ try:
+
+ cursor.execute('''
+
+ INSERT INTO users (username, password)
+
+ VALUES (?, ?)
+
+ ''', (username, hashed_password))
+
+ conn.commit()
+
+ messagebox.showinfo("Success", "User registered successfully!")
+
+ except sqlite3.IntegrityError:
+
+ messagebox.showerror("Error", "Username already exists!")
+
+ finally:
+
+ conn.close()
+
+def login_user(username, password):
+
+ conn = sqlite3.connect('digital_wallet.db')
+
+ cursor = conn.cursor()
+
+ hashed_password = hash_password(password)
+cursor.execute('''
+
+ SELECT * FROM users WHERE username = ? AND password = ?
+
+ ''', (username, hashed_password))
+
+ user = cursor.fetchone()
+
+ conn.close()
+
+ return user
+
+def add_funds(user_id, amount):
+
+ conn = sqlite3.connect('digital_wallet.db')
+
+ cursor = conn.cursor()
+
+ cursor.execute('''
+
+ UPDATE users
+
+ SET balance = balance + ?
+
+ WHERE user_id = ?
+
+ ''', (amount, user_id))
+
+ cursor.execute('''
+
+ INSERT INTO transactions (user_id, type, amount)
+
+ VALUES (?, ?, ?)
+
+ ''', (user_id, 'Deposit', amount))
+
+ conn.commit()
+
+ conn.close()
+
+def get_balance(user_id):
+
+ conn = sqlite3.connect('digital_wallet.db')
+
+ cursor = conn.cursor()
+
+ cursor.execute('''
+
+ SELECT balance FROM users WHERE user_id = ?
+
+ ''', (user_id,))
+
+ balance = cursor.fetchone()[0
+conn.close()
+
+ return balance
+
+def withdraw_funds(user_id, amount):
+
+ conn = sqlite3.connect('digital_wallet.db')
+
+ cursor = conn.cursor()
+
+ balance = get_balance(user_id)
+
+ if balance >= amount:
+
+ cursor.execute('''
+
+ UPDATE users
+
+ SET balance = balance - ?
+
+ WHERE user_id = ?
+
+ ''', (amount, user_id))
+
+ cursor.execute('''
+
+ INSERT INTO transactions (user_id, type, amount)
+
+ VALUES (?, ?, ?)
+
+ ''', (user_id, 'Withdrawal', amount))
+
+ conn.commit()
+
+ conn.close()
+
+ messagebox.showinfo("Success", f"Withdrawal successful! New balance: 
+
+{get_balance(user_id)}")
+
+ else:
+
+ messagebox.showerror("Error", "Insufficient funds!")
+
+def transfer_funds(sender_id, receiver_username, amount):
+
+ conn = sqlite3.connect('digital_wallet.db')
+
+ cursor = conn.cursor()
+
+ balance = get_balance(sender_id)
+
+ if balance >= amount:
+
+ cursor.execute('''
+
+ SELECT user_id FROM users WHERE username = ?
+''', (receiver_username,))
+
+ receiver = cursor.fetchone()
+
+ if receiver:
+
+ receiver_id = receiver[0]
+
+ cursor.execute('''
+
+ UPDATE users
+
+ SET balance = balance - ?
+
+ WHERE user_id = ?
+
+ ''', (amount, sender_id))
+
+ cursor.execute('''
+
+ UPDATE users
+
+ SET balance = balance + ?
+
+ WHERE user_id = ?
+
+ ''', (amount, receiver_id))
+
+ cursor.execute('''
+
+ INSERT INTO transactions (user_id, type, amount)
+
+ VALUES (?, ?, ?)
+
+ ''', (sender_id, 'Transfer Out', amount))
+
+ cursor.execute('''
+
+ INSERT INTO transactions (user_id, type, amount)
+
+ VALUES (?, ?, ?)
+
+ ''', (receiver_id, 'Transfer In', amount))
+
+ conn.commit()
+
+ conn.close()
+
+ messagebox.showinfo("Success", f"Transfer successful! New balance: 
+
+{get_balance(sender_id)}")
+
+ else:
+
+ messagebox.showerror("Error", "Receiver not found!")
+messagebox.showerror("Error", "Insufficient funds!")
+
+root = tk.Tk()
+
+root.title("Digital Wallet System")
+
+root.geometry("400x400")
+
+user_id = None
+
+def handle_register():
+
+ username = entry_username.get()
+
+ password = entry_password.get()
+
+ register_user(username, password)
+
+def handle_login():
+
+ global user_id
+
+ username = entry_username.get()
+
+ password = entry_password.get()
+
+ user = login_user(username, password)
+
+ if user:
+
+ user_id = user[0] # Set user_id after login
+
+ messagebox.showinfo("Success", "Login successful!")
+
+ login_frame.pack_forget()
+
+ main_frame.pack()
+
+ else:
+
+ messagebox.showerror("Error", "Invalid credentials!")
+
+def handle_add_funds():
+
+ amount = float(entry_amount.get())
+
+ add_funds(user_id, amount)
+
+def handle_withdraw_funds():
+
+ amount = float(entry_amount.get())
+
+ withdraw_funds(user_id, amount)
+
+def handle_transfer_funds():
+
+ receiver_username = entry_receiver_username.get()
+amount = float(entry_amount.get())
+
+ transfer_funds(user_id, receiver_username, amount)
+
+login_frame = tk.Frame(root)
+
+login_frame.pack()
+
+tk.Label(login_frame, text="Username").pack()
+
+entry_username = tk.Entry(login_frame)
+
+entry_username.pack()
+
+tk.Label(login_frame, text="Password").pack()
+
+entry_password = tk.Entry(login_frame, show="*")
+
+entry_password.pack()
+
+tk.Button(login_frame, text="Login", command=handle_login).pack()
+
+tk.Button(login_frame, text="Register", command=handle_register).pack()
+
+main_frame = tk.Frame(root)
+
+tk.Label(main_frame, text="Balance:").pack()
+
+tk.Label(main_frame, textvariable=tk.StringVar(value="Balance: $0.00")).pack()
+
+tk.Label(main_frame, text="Amount:").pack()
+
+entry_amount = tk.Entry(main_frame)
+
+entry_amount.pack()
+
+tk.Button(main_frame, text="Add Funds", command=handle_add_funds).pack()
+
+tk.Button(main_frame, text="Withdraw Funds", 
+
+command=handle_withdraw_funds).pack()
+
+tk.Label(main_frame, text="Receiver Username (for transfer):").pack()
+
+entry_receiver_username = tk.Entry(main_frame)
+
+entry_receiver_username.pack()
+
+tk.Button(main_frame, text="Transfer Funds", 
+
+command=handle_transfer_funds).pack()
+
+create_db() 
+
+root.mainloop()
